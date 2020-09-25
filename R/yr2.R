@@ -88,8 +88,8 @@ yr2 <- function(truth, scores, names=colnames(scores), high=TRUE) {
             ppv.prec.balanced=ppv.prec.balanced,precCI5=precCI[[1]],precCI95=precCI[[2]]
       )
     }))
-    #set precision at infinite score threshold to 1
-    data[nrow(data),c("ppv.prec","ppv.prec.balanced")] <- 1
+    #set precision at infinite score threshold based on penultimate value
+    data[nrow(data),c("ppv.prec","ppv.prec.balanced")] <- data[nrow(data)-1,c("ppv.prec","ppv.prec.balanced")]
     
     monotonize <- function(xs) {
       for (i in 2:length(xs)) {
