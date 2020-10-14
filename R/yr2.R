@@ -302,16 +302,16 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,legend="bottomle
 #' 
 #' The list returned by this functions contains four elements:
 #' \describe{
-#' \item{auprc} is simply the empirical area under the precision recall curve 
-#' for each predictor.
-#' \item{ci} is a matrix listing the lower and upper end of the 95% confidence 
-#' interval for the AUPRC of each predictor.
-#' \item{llr} is a matrix with columns and rows corresponding to each predictor.
+#' \item{auprc}{is simply the empirical area under the precision recall curve 
+#' for each predictor.}
+#' \item{ci}{is a matrix listing the lower and upper end of the 95% confidence 
+#' interval for the AUPRC of each predictor.}
+#' \item{llr}{is a matrix with columns and rows corresponding to each predictor.
 #' It lists the log likelihood ratio of how much more (or less) likely the row-wise
-#' predictor is to have a greater AUPRC than the column-wise predictor.
-#' \item{pval} is a matrix with columns and rows corresponding to each predictor.
+#' predictor is to have a greater AUPRC than the column-wise predictor.}
+#' \item{pval}{is a matrix with columns and rows corresponding to each predictor.
 #' It lists the p-value of how likely it would be to observe the AUPRC of the row-wise
-#' predictor under the distribution of the column-wise predictor.
+#' predictor under the distribution of the column-wise predictor.}
 #' }
 #'
 #' @param yr2 the yogiroc2 object

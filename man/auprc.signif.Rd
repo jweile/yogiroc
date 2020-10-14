@@ -23,15 +23,28 @@ of each auprc against each other)
 \description{
 The list returned by this functions contains four elements:
 \describe{
-\item{auprc} is simply the empirical area under the precision recall curve 
-for each predictor.
-\item{ci} is a matrix listing the lower and upper end of the 95% confidence 
-interval for the AUPRC of each predictor.
-\item{llr} is a matrix with columns and rows corresponding to each predictor.
+\item{auprc}{is simply the empirical area under the precision recall curve 
+for each predictor.}
+\item{ci}{is a matrix listing the lower and upper end of the 95% confidence 
+interval for the AUPRC of each predictor.}
+\item{llr}{is a matrix with columns and rows corresponding to each predictor.
 It lists the log likelihood ratio of how much more (or less) likely the row-wise
-predictor is to have a greater AUPRC than the column-wise predictor.
-\item{pval} is a matrix with columns and rows corresponding to each predictor.
+predictor is to have a greater AUPRC than the column-wise predictor.}
+\item{pval}{is a matrix with columns and rows corresponding to each predictor.
 It lists the p-value of how likely it would be to observe the AUPRC of the row-wise
-predictor under the distribution of the column-wise predictor.
+predictor under the distribution of the column-wise predictor.}
 }
+}
+\examples{
+#' #generate fake data
+N <- 100
+M <- 80
+truth <- c(rep(TRUE,N),rep(FALSE,M))
+scores <- cbind(
+  pred1=c(rnorm(N,1,0.2),rnorm(M,.9,0.1)),
+  pred2=c(rnorm(N,1.1,0.2),rnorm(M,.9,0.2))
+)
+#create yogiroc2 object
+yrobj <- yr2(truth,scores)
+auprc.signif(yrobj)
 }
