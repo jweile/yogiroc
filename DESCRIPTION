@@ -1,6 +1,6 @@
 Package: yogiroc
 Title: What the Package Does (one line, title case)
-Version: 0.1.0.9000
+Version: 0.2.0.9000
 Authors@R: 'Jochen Weile <jochenweile@gmail.com> [aut,cre]'
 Description: What the package does (one paragraph).
 Depends: R (>= 3.4.4)

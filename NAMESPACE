@@ -2,8 +2,10 @@
 
 S3method(print,yr2)
 export(auprc)
+export(auprc.signif)
 export(auroc)
 export(draw.prc)
+export(draw.prc.CI)
 export(draw.roc)
 export(new.yogiroc)
 export(recall.at.prec)

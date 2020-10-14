@@ -1,7 +1,8 @@
 
 #' new yogiroc
 #' 
-#' Create a new yogiroc object used to draw ROC and PRC curves and calculate the respective AUC.
+#' Warning: This class is now deprecated. Please use \code{yr2} instead.
+#' This creates a new yogiroc object used to draw ROC and PRC curves and calculate the respective AUC.
 #' 
 #' The object exposes the following methods:
 #' \begin{description}
@@ -19,6 +20,8 @@
 #' @export
 #'    
 new.yogiroc <- function(truth,scores) {
+  
+  .Deprecated("yr2", package="yogiroc")
 
 	#build a table for the ROC/PRC curves by iterating over all possible score thresholds
 	data <- do.call(rbind,lapply(c(-Inf,sort(scores),Inf), function(t) {

@@ -15,7 +15,8 @@ new.yogiroc(truth, scores)
 A new yogiroc object
 }
 \description{
-Create a new yogiroc object used to draw ROC and PRC curves and calculate the respective AUC.
+Warning: This class is now deprecated. Please use \code{yr2} instead.
+This creates a new yogiroc object used to draw ROC and PRC curves and calculate the respective AUC.
 }
 \details{
 The object exposes the following methods:

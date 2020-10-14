@@ -2,19 +2,44 @@
 
 #' confidence interval for precision or recall
 #'
-#' @param i the number of correct calls
-#' @param n the number of total calls
+#' @param is the number of correct calls
+#' @param ns the number of total calls
 #' @param p the confidence interval probability range e.g. 0.025;0.975
 #' @param res the resolution at which to sample the call rates
 #'
 #' @return the confidence interval (numerical vector)
-prcCI <- function(i,n,p=c(0.025,0.975),res=0.001) {
-  rates <- seq(0,1,res)
-  dens <- dbinom(i,n,rates)
-  cdf <- c(0,cumsum(dens[-1]*res)/sum(dens*res))
-  # plot(rates,cdf,type="l")
-  sapply(p,function(.p) rates[max(which(cdf < .p))])
+prcCI <- function(is, ns, p=c(0.025,0.975),res=0.001) {
+  stopifnot(length(is)==length(ns))
+  do.call(rbind,mapply(function(i,n) {
+    rates <- seq(0,1,res)
+    dens <- dbinom(i,n,rates)
+    cdf <- c(0,cumsum(dens[-1]*res)/sum(dens*res))
+    setNames(sapply(p,function(.p) rates[max(which(cdf < .p))]),p)
+  },is,ns,SIMPLIFY=FALSE))
 }
+
+# prcCI <- function(i,n,p=c(0.025,0.975),res=0.001) {
+#   rates <- seq(0,1,res)
+#   dens <- dbinom(i,n,rates)
+#   cdf <- c(0,cumsum(dens[-1]*res)/sum(dens*res))
+#   # plot(rates,cdf,type="l")
+#   sapply(p,function(.p) rates[max(which(cdf < .p))])
+# }
+
+#' Helper function to monotonize precision
+#'
+#' @param xs numerical input vector, representing precision ordered according to increasing t
+#'
+#' @return the monotonized equivalent vector
+monotonize <- function(xs) {
+  for (i in 2:length(xs)) {
+    if (xs[[i]] < xs[[i-1]]) {
+      xs[[i]] <- xs[[i-1]]
+    }
+  }
+  xs
+}
+
 
 #' YogiRoc2 object constructor
 #'
@@ -61,11 +86,11 @@ yr2 <- function(truth, scores, names=colnames(scores), high=TRUE) {
     scores[,which(!high)] <- -scores[,which(!high)]
   }
   
-  #the sample prior is the share of true cases out of all cases
-  prior <- sum(truth)/length(truth)
-
   #calculate and return the roc/prc tables for each score
   tables <- setNames(lapply(1:ncol(scores), function(coli) {
+    #the sample prior is the share of true cases out of all cases
+    appl <- which(!is.na(scores[,coli]))
+    prior <- sum(truth[appl])/length(truth[appl])
     #build a table for the ROC/PRC curves by iterating over all possible score thresholds
     ts <- na.omit(c(-Inf,sort(scores[,coli]),Inf))
     data <- do.call(rbind,lapply(ts, function(t) {
@@ -82,27 +107,18 @@ yr2 <- function(truth, scores, names=colnames(scores), high=TRUE) {
       fpr.fall <- fp/(tn+fp)
       ppv.prec.balanced <- ppv.prec*(1-prior)/(ppv.prec*(1-prior)+(1-ppv.prec)*prior)
       #assess the confidence intervals
-      precCI <- prcCI(tp,tp+fp)
+      # precCI <- prcCI(tp,tp+fp)
       #return the results
-      cbind(thresh=t,ppv.prec=ppv.prec,tpr.sens=tpr.sens,fpr.fall=fpr.fall,
-            ppv.prec.balanced=ppv.prec.balanced,precCI5=precCI[[1]],precCI95=precCI[[2]]
+      c(thresh=t,tp=tp,tn=tn,fp=fp,fn=fn,ppv.prec=ppv.prec,tpr.sens=tpr.sens,fpr.fall=fpr.fall,
+            ppv.prec.balanced=ppv.prec.balanced#,precCI5=precCI[[1]],precCI95=precCI[[2]]
       )
     }))
     #set precision at infinite score threshold based on penultimate value
     data[nrow(data),c("ppv.prec","ppv.prec.balanced")] <- data[nrow(data)-1,c("ppv.prec","ppv.prec.balanced")]
     
-    monotonize <- function(xs) {
-      for (i in 2:length(xs)) {
-        if (xs[[i]] < xs[[i-1]]) {
-          xs[[i]] <- xs[[i-1]]
-        }
-      }
-      xs
-    }
-    
     #monotonize precision to correct for slumps in PRC curve
-    data <- cbind(data,ppv.prec.mono=monotonize(data[,"ppv.prec"]))
-    data <- cbind(data,ppv.prec.balanced.mono=monotonize(data[,"ppv.prec.balanced"]))
+    # data <- cbind(data,ppv.prec.mono=monotonize(data[,"ppv.prec"]))
+    # data <- cbind(data,ppv.prec.balanced.mono=monotonize(data[,"ppv.prec.balanced"]))
     return(data)
     
   }),names)
@@ -198,13 +214,12 @@ draw.roc <- function(yr2,col=seq_along(yr2),legend="bottomright",...) {
 #' draw.prc(yrobj,balanced=TRUE)
 draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,legend="bottomleft",...) {
   stopifnot(inherits(yr2,"yr2"))
-  ppvcol <- if (balanced) {
-    if (monotonized) "ppv.prec.balanced.mono" else "ppv.prec.balanced"
-  } else {
-    if (monotonized) "ppv.prec.mono" else "ppv.prec"
+  ppv <- function(i) {
+    raw <- if (balanced) yr2[[i]][,"ppv.prec.balanced"] else yr2[[i]][,"ppv.prec"]
+    if (monotonized) monotonize(raw) else raw
   }
   plot(
-    100*yr2[[1]][,"tpr.sens"],100*yr2[[1]][,ppvcol],
+    100*yr2[[1]][,"tpr.sens"],100*ppv(1),
     type="l",
     xlab="Recall (%)", ylab="Precision (%)",
     xlim=c(0,100),ylim=c(0,100),col=col[[1]], ...
@@ -212,16 +227,196 @@ draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,lege
   if(length(yr2) > 1) {
     for (i in 2:length(yr2)) {
       lines(
-        100*yr2[[i]][,"tpr.sens"],100*yr2[[i]][,ppvcol],
+        100*yr2[[i]][,"tpr.sens"],100*ppv(i),
         col=col[[i]], ...
       )
     }
   } 
   if (!is.na(legend)) {
-    legend(legend,sprintf("%s (AUPRC=%.02f)",names(yr2),auprc(yr2,monotonized)),col=col,lty=1)
+    legend(legend,sprintf("%s (AUPRC=%.02f;R90P=%.02f)",
+           names(yr2),auprc(yr2,monotonized,balanced),recall.at.prec(yr2,0.9,monotonized,balanced)
+    ),col=col,lty=1)
   }
 }
 
+
+#' Draw Precision-Recall Curve (PRC) with confidence intervals
+#'
+#' @param yr2 the yogiroc2 object
+#' @param col vector of colors to use for the predictors
+#' @param monotonized whether or not to monotonize the curve
+#' @param legend the position of the legend, e.g. "bottomleft". NA disables legend
+#' @param ... additional graphical parameters (see \code{par})
+#'
+#' @return nothing. draws a plot
+#' @export
+#'
+#' @examples
+#' #generate fake data
+#' N <- 100
+#' M <- 80
+#' truth <- c(rep(TRUE,N),rep(FALSE,M))
+#' scores <- cbind(
+#'   pred1=c(rnorm(N,1,0.2),rnorm(M,.9,0.1)),
+#'   pred2=c(rnorm(N,1.1,0.2),rnorm(M,.9,0.2))
+#' )
+#' #create yogiroc2 object
+#' yrobj <- yr2(truth,scores)
+#' #draw PRC curve
+#' draw.prc.CI(yrobj)
+#' #draw non-monotonized PRC curve
+#' draw.prc.CI(yrobj,monotonized=FALSE)
+draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,legend="bottomleft",...) {
+  stopifnot(inherits(yr2,"yr2"))
+  mon <- function(xs) if (monotonized) monotonize(xs) else xs
+  plot(
+    100*yr2[[1]][,"tpr.sens"],100*mon(yr2[[1]][,"ppv.prec"]),
+    type="l",
+    xlab="Recall (%)", ylab="Precision (%)",
+    xlim=c(0,100),ylim=c(0,100),col=col[[1]], #...
+  )
+  if(length(yr2) > 1) {
+    for (i in 2:length(yr2)) {
+      lines(
+        100*yr2[[i]][,"tpr.sens"],100*mon(yr2[[i]][,"ppv.prec"]),
+        col=col[[i]], #...
+      )
+    }
+  } 
+  for (i in 1:length(yr2)) {
+    x <- 100*yr2[[i]][,"tpr.sens"]
+    precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"])
+    polygon(c(x,rev(x)),
+            c(100*mon(precCI[,"0.025"]),rev(100*mon(precCI[,"0.975"]))),
+            col=yogitools::colAlpha(col[[i]],0.1),border=NA
+    )
+  }
+  if (!is.na(legend)) {
+    legend(legend,sprintf("%s (AUPRC=%.02f;R90P=%.02f)",
+        names(yr2),auprc(yr2,monotonized),recall.at.prec(yr2,0.9,monotonized)
+    ),col=col,lty=1)
+  }
+}
+
+#' Assess the significance of AUPRC differences
+#' 
+#' The list returned by this functions contains four elements:
+#' \describe{
+#' \item{auprc} is simply the empirical area under the precision recall curve 
+#' for each predictor.
+#' \item{ci} is a matrix listing the lower and upper end of the 95% confidence 
+#' interval for the AUPRC of each predictor.
+#' \item{llr} is a matrix with columns and rows corresponding to each predictor.
+#' It lists the log likelihood ratio of how much more (or less) likely the row-wise
+#' predictor is to have a greater AUPRC than the column-wise predictor.
+#' \item{pval} is a matrix with columns and rows corresponding to each predictor.
+#' It lists the p-value of how likely it would be to observe the AUPRC of the row-wise
+#' predictor under the distribution of the column-wise predictor.
+#' }
+#'
+#' @param yr2 the yogiroc2 object
+#' @param monotonized whether or not to monotonize the curve
+#' @param res the resolution at which to sample the probability function 
+#' (defaults to 0.001)
+#'
+#' @return a list containing 4 elements: "auprc" (the empirical area under the 
+#' precision recall curve), "ci" (the 95%confidence interval around the auprc), 
+#' "llr" (the log likelihood ratio matrix, see details), and "pval" (the p-value 
+#' of each auprc against each other)
+#' @export
+#'
+#' @examples
+#' #' #generate fake data
+#' N <- 100
+#' M <- 80
+#' truth <- c(rep(TRUE,N),rep(FALSE,M))
+#' scores <- cbind(
+#'   pred1=c(rnorm(N,1,0.2),rnorm(M,.9,0.1)),
+#'   pred2=c(rnorm(N,1.1,0.2),rnorm(M,.9,0.2))
+#' )
+#' #create yogiroc2 object
+#' yrobj <- yr2(truth,scores)
+#' auprc.signif(yrobj)
+auprc.signif <- function(yr2,monotonized=TRUE,res=0.001) {
+  ps <- seq(res,1-res,res)
+  auprcs <- do.call(cbind,lapply(1:length(yr2),function(i) {
+    precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"],p=ps)
+    apply(precCI,2,function(ppv) {
+      if (monotonized) {
+        ppv <- monotonize(ppv)
+      }
+      calc.auc(yr2[[i]][,"tpr.sens"],ppv)
+    })
+  }))
+  
+  empAUCs <- auprc(yr2,monotonized=monotonized)
+  
+  # plot(NA,type="n",xlim=c(0,1),ylim=c(0,1),xlab="AUPRC",ylab="CDF")
+  # for (i in 1:ncol(auprcs)) {
+  #   lines(c(0,auprcs[,i],1),c(0,ps,1),col=i)
+  # }
+  # abline(v=empAUCs,col=1:length(yr2),lty="dashed")
+  
+  confInts <- auprcs[c("0.025","0.975"),]
+  
+  pvals <- do.call(rbind,lapply(1:ncol(aucPs),function(i) {
+    sapply(1:ncol(aucPs),function(j) {
+      if (i==j) NA else {
+        1-c(0,ps)[[sum(auprcs[,j] < empAUCs[[i]])+1]]
+      }
+    })
+  }))
+  
+  #1. build a reverse-lookup table that returns p for a given auprc
+  aucRange <- do.call(seq,as.list(c(round(range(auprcs),digits=2),res)))
+  aucPs <- do.call(rbind,lapply(aucRange,function(a){
+    apply(auprcs,2,function(ladder){
+     c(0,ps)[[sum(ladder < a)+1]]
+    })
+  }))
+  
+  llrs <- do.call(rbind,lapply(1:ncol(aucPs),function(i) {
+    sapply(1:ncol(aucPs),function(j) {
+      if (i==j) NA else {
+        #2. iterate over range of auprcs and calculate p_A(x) * (1-p_B(x)) 
+        #  (i.e. the probability that area A is smaller than x AND area B is greater than x)
+        log10(calc.auc(aucRange,aucPs[,j]*(1-aucPs[,i]))/calc.auc(aucRange,aucPs[,i]*(1-aucPs[,j])))
+      }
+    })
+  }))
+
+  return(list(auprc=empAUCs,ci=confInts,llr=llrs,pval=pvals))
+}
+
+auprc.CI <- function(yr2,monotonized=TRUE) {
+  do.call(rbind,lapply(1:length(yr2),function(i) {
+    precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"])
+    auprcs <- apply(precCI,2,function(ppv) {
+      if (monotonized) {
+        ppv <- monotonize(ppv)
+      }
+      calc.auc(yr2[[i]][,"tpr.sens"],ppv)
+    })
+  }))
+}
+
+#' Helper function to calculate area under curve
+#'
+#' @param xs the x values of the graph
+#' @param ys the corresponding y values of the graph
+#'
+#' @return the area under the curve
+calc.auc <- function(xs,ys) {
+  #calculate the sum of the areas of individual x-segments
+  sum(sapply(1:(length(xs)-1),function(i) {
+    #calculate interval width between datapoints on x-axis
+    delta.x <- abs(xs[[i]]-xs[[i+1]])
+    #calculate the average height of the two points on the y-axis
+    y <- (ys[[i]]+ys[[i+1]])/2
+    #area = x * y ; geometrically, this works out to be the same as the area of the polygon
+    delta.x * y
+  }))
+}
 
 #' Calculate area under precision recall curve (AUPRC)
 #'
@@ -249,17 +444,12 @@ draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,lege
 #' auprc(yrobj,balanced=TRUE)
 auprc <- function(yr2, monotonized=TRUE, balanced=FALSE) {
   stopifnot(inherits(yr2,"yr2"))
-  ppvcol <- if (balanced) {
-    if (monotonized) "ppv.prec.balanced.mono" else "ppv.prec.balanced"
-  } else {
-    if (monotonized) "ppv.prec.mono" else "ppv.prec"
+  ppv <- function(data) {
+    raw <- if (balanced) data[,"ppv.prec.balanced"] else data[,"ppv.prec"]
+    if (monotonized) monotonize(raw) else raw
   }
   sapply(yr2,function(data) {
-    sum(sapply(1:(nrow(data)-1),function(i) {
-      delta.x <- data[i,"tpr.sens"]-data[i+1,"tpr.sens"]
-      y <- (data[i,ppvcol]+data[i+1,ppvcol])/2
-      delta.x * y
-    }))
+    calc.auc(data[,"tpr.sens"],ppv(data))
   })
 }
   
@@ -285,15 +475,7 @@ auprc <- function(yr2, monotonized=TRUE, balanced=FALSE) {
 auroc <- function(yr2) {
   stopifnot(inherits(yr2,"yr2"))
   sapply(yr2,function(data) {
-    #iterate across x-axis intervals and sum across areas
-    sum(sapply(1:(nrow(data)-1),function(i) {
-      #calculate interval width between datapoints on x-axis
-      delta.x <- data[i,"fpr.fall"]-data[i+1,"fpr.fall"]
-      #calculate the average height of the two points on the y-axis
-      y <- (data[i,"tpr.sens"]+data[i+1,"tpr.sens"])/2
-      #area = x * y
-      delta.x * y
-    }))
+    calc.auc(data[,"fpr.fall"],data[,"tpr.sens"])
   })
 }
 
@@ -324,13 +506,12 @@ auroc <- function(yr2) {
 #' recall.at.prec(yrobj,balanced=TRUE)
 recall.at.prec <- function(yr2,x=0.9,monotonized=TRUE,balanced=FALSE) {
   stopifnot(inherits(yr2,"yr2"))
-  ppvcol <- if (balanced) {
-    if (monotonized) "ppv.prec.balanced.mono" else "ppv.prec.balanced"
-  } else {
-    if (monotonized) "ppv.prec.mono" else "ppv.prec"
+  ppv <- function(data) {
+    raw <- if (balanced) data[,"ppv.prec.balanced"] else data[,"ppv.prec"]
+    if (monotonized) monotonize(raw) else raw
   }
   sapply(yr2,function(data) {
-    if (any(data[,"ppv.prec"] > x)) {
+    if (any(ppv(data) > x)) {
       max(data[which(data[,"ppv.prec"] > x),"tpr.sens"])
     } else NA
   })

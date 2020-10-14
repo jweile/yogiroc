@@ -4,12 +4,12 @@
 \alias{prcCI}
 \title{confidence interval for precision or recall}
 \usage{
-prcCI(i, n, p = c(0.025, 0.975), res = 0.001)
+prcCI(is, ns, p = c(0.025, 0.975), res = 0.001)
 }
 \arguments{
-\item{i}{the number of correct calls}
+\item{is}{the number of correct calls}
 
-\item{n}{the number of total calls}
+\item{ns}{the number of total calls}
 
 \item{p}{the confidence interval probability range e.g. 0.025;0.975}
 
