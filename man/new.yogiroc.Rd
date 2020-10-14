@@ -20,12 +20,12 @@ This creates a new yogiroc object used to draw ROC and PRC curves and calculate 
 }
 \details{
 The object exposes the following methods:
-\begin{description}
+\itemize{
 \item{draw.roc(col,main,lwd,add)} Draws a ROC curve. Parameter "col" controls the line color, 
 "main" sets the plot title, "lwd" sets the line width, "add" allows the plot to be added as a line
 to an existing plot.
 \item{draw.prc(col,main,lwd,add)} Draws a PRC curve, Parameters as above.
 \item{auroc()} Returns the Area under the ROC curve.
 \item{auprc()} Returns the Area under the PRC curve.
-\end{description}
+}
 }
