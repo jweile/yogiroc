@@ -326,7 +326,7 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,legend="bottomle
 #' @export
 #'
 #' @examples
-#' #' #generate fake data
+#' #generate fake data
 #' N <- 100
 #' M <- 80
 #' truth <- c(rep(TRUE,N),rep(FALSE,M))
@@ -512,7 +512,7 @@ recall.at.prec <- function(yr2,x=0.9,monotonized=TRUE,balanced=FALSE) {
   }
   sapply(yr2,function(data) {
     if (any(ppv(data) > x)) {
-      max(data[which(data[,"ppv.prec"] > x),"tpr.sens"])
+      max(data[which(ppv(data) > x),"tpr.sens"])
     } else NA
   })
 }
