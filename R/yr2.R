@@ -351,13 +351,16 @@ auprc.signif <- function(yr2,monotonized=TRUE,res=0.001) {
   
   empAUCs <- auprc(yr2,monotonized=monotonized)
   
-  # plot(NA,type="n",xlim=c(0,1),ylim=c(0,1),xlab="AUPRC",ylab="CDF")
-  # for (i in 1:ncol(auprcs)) {
-  #   lines(c(0,auprcs[,i],1),c(0,ps,1),col=i)
-  # }
-  # abline(v=empAUCs,col=1:length(yr2),lty="dashed")
+  #1. build a reverse-lookup table that returns p for a given auprc
+  aucRange <- do.call(seq,as.list(c(round(range(auprcs),digits=2),res)))
+  aucPs <- do.call(rbind,lapply(aucRange,function(a){
+    apply(auprcs,2,function(ladder){
+      c(0,ps)[[sum(ladder < a)+1]]
+    })
+  }))
   
   confInts <- auprcs[c("0.025","0.975"),]
+  colnames(confInts) <- names(yr2)
   
   pvals <- do.call(rbind,lapply(1:ncol(aucPs),function(i) {
     sapply(1:ncol(aucPs),function(j) {
@@ -366,14 +369,7 @@ auprc.signif <- function(yr2,monotonized=TRUE,res=0.001) {
       }
     })
   }))
-  
-  #1. build a reverse-lookup table that returns p for a given auprc
-  aucRange <- do.call(seq,as.list(c(round(range(auprcs),digits=2),res)))
-  aucPs <- do.call(rbind,lapply(aucRange,function(a){
-    apply(auprcs,2,function(ladder){
-     c(0,ps)[[sum(ladder < a)+1]]
-    })
-  }))
+  dimnames(pvals) <- list(names(yr2), names(yr2))
   
   llrs <- do.call(rbind,lapply(1:ncol(aucPs),function(i) {
     sapply(1:ncol(aucPs),function(j) {
@@ -384,7 +380,14 @@ auprc.signif <- function(yr2,monotonized=TRUE,res=0.001) {
       }
     })
   }))
-
+  dimnames(llrs) <- list(names(yr2), names(yr2))
+  
+  # plot(NA,type="n",xlim=c(0,1),ylim=c(0,1),xlab="AUPRC",ylab="CDF")
+  # for (i in 1:ncol(auprcs)) {
+  #   lines(c(0,auprcs[,i],1),c(0,ps,1),col=i)
+  # }
+  # abline(v=empAUCs,col=1:length(yr2),lty="dashed")
+  
   return(list(auprc=empAUCs,ci=confInts,llr=llrs,pval=pvals))
 }
 
