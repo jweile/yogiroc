@@ -6,6 +6,8 @@
 #' @param ns the number of total calls
 #' @param p the confidence interval probability range e.g. 0.025;0.975
 #' @param res the resolution at which to sample the call rates
+#' 
+#' @export
 #'
 #' @return the confidence interval (numerical vector)
 prcCI <- function(is, ns, p=c(0.025,0.975),res=0.001) {
@@ -338,7 +340,10 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,legend="bottomle
 #' yrobj <- yr2(truth,scores)
 #' auprc.signif(yrobj)
 auprc.signif <- function(yr2,monotonized=TRUE,res=0.001) {
+  #probability range
   ps <- seq(res,1-res,res)
+  #calculate the AUPRC for each probability
+  #i.e. the quantiles corresponding to ps
   auprcs <- do.call(cbind,lapply(1:length(yr2),function(i) {
     precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"],p=ps)
     apply(precCI,2,function(ppv) {
@@ -349,6 +354,7 @@ auprc.signif <- function(yr2,monotonized=TRUE,res=0.001) {
     })
   }))
   
+  #empirical AUCs of the predictors
   empAUCs <- auprc(yr2,monotonized=monotonized)
   
   #1. build a reverse-lookup table that returns p for a given auprc
@@ -391,17 +397,75 @@ auprc.signif <- function(yr2,monotonized=TRUE,res=0.001) {
   return(list(auprc=empAUCs,ci=confInts,llr=llrs,pval=pvals))
 }
 
-auprc.CI <- function(yr2,monotonized=TRUE) {
-  do.call(rbind,lapply(1:length(yr2),function(i) {
-    precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"])
-    auprcs <- apply(precCI,2,function(ppv) {
-      if (monotonized) {
-        ppv <- monotonize(ppv)
-      }
-      calc.auc(yr2[[i]][,"tpr.sens"],ppv)
-    })
-  }))
+
+#' Assess the significance of AUPRC against random guessing
+#' #'
+#' @param yr2 the yogiroc2 object
+#' @param monotonized whether or not to monotonize the curves
+#' @param cycles the sample size of the null distribution to use
+#'
+#' @return The emprical p-values of the AUPRC against random guessing
+#' @export
+#'
+#' @examples
+#' #generate fake data
+#' N <- 10
+#' M <- 8
+#' truth <- c(rep(TRUE,N),rep(FALSE,M))
+#' scores <- cbind(
+#'   pred1=c(rnorm(N,1,0.2),rnorm(M,.9,0.1)),
+#'   pred2=c(rnorm(N,1.1,0.2),rnorm(M,.9,0.2))
+#' )
+#' #create yogiroc2 object
+#' yrobj <- yr2(truth,scores)
+#' #call pvrandom function
+#' auprc.pvrandom(yrobj)
+auprc.pvrandom <- function(yr2,monotonized=TRUE,cycles=10000) {
+  
+  empAUCs <- auprc(yr2,monotonized=monotonized)
+  
+  #reconstruct truth table
+  real <- yr2[[1]][1,"tp"]
+  nreal <- yr2[[1]][1,"fp"]
+  truth <- c(rep(TRUE,real),rep(FALSE,nreal))
+  
+  nullAucs <- replicate(cycles,{
+    scores <- runif(real+nreal,0,1)
+    ts <- na.omit(c(-Inf,sort(scores),Inf))
+    pr <- t(sapply(sort(scores), function(t) {
+      calls <- scores >= t
+      tp <- sum(calls & truth,na.rm=TRUE)
+      # tn <- sum(!calls & !truth,na.rm=TRUE)
+      fp <- sum(calls & !truth,na.rm=TRUE)
+      fn <- sum(!calls & truth,na.rm=TRUE)
+      prec <- tp/(tp+fp)
+      recall <- tp/(tp+fn)
+      # fpr.fall <- fp/(tn+fp)
+      c(prec,recall)
+    }))
+    if (monotonized){
+      pr[,1] <- monotonize(pr[,1])
+    }
+    calc.auc(pr[,2],pr[,1])
+  })
+  
+  pvals <- sapply(empAUCs, function(eauc) {
+    sum(nullAucs >= eauc)/cycles
+  })
+  
+  return(pvals)
 }
+# auprc.CI <- function(yr2,monotonized=TRUE) {
+#   do.call(rbind,lapply(1:length(yr2),function(i) {
+#     precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"])
+#     auprcs <- apply(precCI,2,function(ppv) {
+#       if (monotonized) {
+#         ppv <- monotonize(ppv)
+#       }
+#       calc.auc(yr2[[i]][,"tpr.sens"],ppv)
+#     })
+#   }))
+# }
 
 #' Helper function to calculate area under curve
 #'

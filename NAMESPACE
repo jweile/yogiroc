@@ -2,11 +2,13 @@
 
 S3method(print,yr2)
 export(auprc)
+export(auprc.pvrandom)
 export(auprc.signif)
 export(auroc)
 export(draw.prc)
 export(draw.prc.CI)
 export(draw.roc)
 export(new.yogiroc)
+export(prcCI)
 export(recall.at.prec)
 export(yr2)

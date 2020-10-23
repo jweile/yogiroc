@@ -36,7 +36,7 @@ predictor under the distribution of the column-wise predictor.}
 }
 }
 \examples{
-#' #generate fake data
+#generate fake data
 N <- 100
 M <- 80
 truth <- c(rep(TRUE,N),rep(FALSE,M))
