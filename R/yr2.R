@@ -275,13 +275,13 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,legend="bottomle
     100*yr2[[1]][,"tpr.sens"],100*mon(yr2[[1]][,"ppv.prec"]),
     type="l",
     xlab="Recall (%)", ylab="Precision (%)",
-    xlim=c(0,100),ylim=c(0,100),col=col[[1]], #...
+    xlim=c(0,100),ylim=c(0,100),col=col[[1]], ...
   )
   if(length(yr2) > 1) {
     for (i in 2:length(yr2)) {
       lines(
         100*yr2[[i]][,"tpr.sens"],100*mon(yr2[[i]][,"ppv.prec"]),
-        col=col[[i]], #...
+        col=col[[i]], ...
       )
     }
   } 

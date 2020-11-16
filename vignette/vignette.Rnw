@@ -1,0 +1,63 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage[legalpaper, margin=2cm]{geometry}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\section*{Precision-recall curve confidence intervals}
+
+The precision observed at a given score threshold is defined as the number of true positive calls divided by the total number of positive calls. As the threshold increases in stringency, the total number of positives decreases, leading to less numerical stability, thus the less certain we are of the actual precision. This can be expressed as a binomial process. Given the true precision $\rho$ at threshold $t$, as well as the surviving number of positives $n$ the likelihood of observing $i$ true positives would be governed by the binomial distribution:
+$$ \mathbb{P}(i|\rho) = \binom{n}{i}\rho^i(1-\rho)^{(n-i)}$$
+And the likelihood of this observation if the true precision $\rho$ is really smaller than $x$:
+$$ \mathbb{P}(i|\rho < x) = \int_0^x \binom{n}{i}\rho^i(1-\rho)^{(n-i)} d\rho $$ 
+Now, to obtain the probability of the precision $\rho$ really being less than $x$ (i.e. the cumulative distribution function of $\rho$ given our evidence) we can use Bayes' theorem:
+$$
+\mathbb{P}(\rho < x|i) =  \frac{\mathbb{P}(i|\rho < x)\mathbb{P}(\rho < x)}{\mathbb{P}(i)}  
+$$
+Then, assuming a uniform prior for $\rho$:
+$$
+\mathbb{P}(\rho < x|i) = \frac{\int_0^x \binom{n}{i}\rho^i(1-\rho)^{(n-i)} d\rho \cdot x}{\int_0^1 \binom{n}{i}\rho^i(1-\rho)^{(n-i)} x d\rho} = \frac{\int_0^x \binom{n}{i}\rho^i(1-\rho)^{(n-i)} d\rho}{\int_0^1 \binom{n}{i}\rho^i(1-\rho)^{(n-i)} d\rho}
+$$
+This allows us to find map the quantiles and thus construct confidence intervals for our PRC curves:
+
+<<fig=TRUE, width=6, height=4>>==
+#generate dummy example data
+N <- 100
+M <- 80
+truth <- c(rep(TRUE,N),rep(FALSE,M))
+scores <- cbind(
+ pred1=c(rnorm(N,1,0.2),rnorm(M,.9,0.1)),
+ pred2=c(rnorm(N,1.1,0.2),rnorm(M,.9,0.2))
+)
+#create yogiroc2 object
+yrobj <- yogiroc::yr2(truth,scores)
+#draw non-monotonized PRC curve
+op <- par(mar=c(5,4,1,1))
+yogiroc::draw.prc.CI(yrobj,monotonized=FALSE)
+par(op)
+@
+
+
+\subsection*{Monotonization}
+In a given PRC curve, as the threshold increases in stringency, the total number of positives decreases, leading to less numerical stability. However, it is fair to assume, that increasing stringency can in reality only increase precision (at the cost of losing recall). Therefore, any apparent decreases in precision can be interpreted as the result of numerical instability in the sampling process. We can therefore apply a `monotonization' function to the PRC curve, that allows only increases in precision as the threshold grows more stringent, but never decreases. The same assumption can be made for the confidence interval traces, and by extension the traces of quantiles across score thresholds. In other words, if the probability of the precision being greater than x at a permissive threshold was 95\%, then at a more stringent threshold, the real precision should not have less than 95\% chance of being greater than x.
+
+<<fig=TRUE, width=6, height=4>>==
+#draw monotonized PRC curve
+op <- par(mar=c(5,4,1,1))
+yogiroc::draw.prc.CI(yrobj,monotonized=TRUE)
+par(op)
+@
+
+\subsection*{Comparing two PRC curves}
+A simple way to calculate p-values is to calculate the CDF for the area under the curve (AUC) for a predictor, using the same approach as above. Then looking up the AUC of a second predictor in the CDF of the first curve yields the probability of observing an AUC as least as extreme.
+
+However, a more sophisticated approach would be to compare the CDFs of the two predictors' AUCs to each other. For any given hypothetical AUC value $a$ we can calculate how much more likely it that predictor 1 has a greater AUC than $a$ while predictor 2 has  lower AUC than $x$:
+$$
+LLR = \log\left(\frac{\int_0^1\mathbb{P}(AUC_1 < x)\cdot\mathbb{P}(AUC_2 \ge x)dx}{\int_0^1\mathbb{P}(AUC_1 \ge x)\cdot\mathbb{P}(AUC_2 < x)dx}\right)
+$$
+
+
+\end{document}
