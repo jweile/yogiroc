@@ -8,6 +8,7 @@ draw.prc.CI(
   yr2,
   col = seq_along(yr2),
   monotonized = TRUE,
+  balanced = FALSE,
   legend = "bottomleft",
   ...
 )
@@ -18,6 +19,8 @@ draw.prc.CI(
 \item{col}{vector of colors to use for the predictors}
 
 \item{monotonized}{whether or not to monotonize the curve}
+
+\item{balanced}{whether or not to use prior-balancing}
 
 \item{legend}{the position of the legend, e.g. "bottomleft". NA disables legend}
 

@@ -42,6 +42,22 @@ monotonize <- function(xs) {
   xs
 }
 
+balance.prec <- function(ppv.prec,prior) {
+  ppv.prec*(1-prior)/(ppv.prec*(1-prior)+(1-ppv.prec)*prior)
+}
+
+configure.prec <- function(sheet,monotonized=TRUE,balanced=FALSE) {
+  ppv <- sheet[,"ppv.prec"]
+  if (balanced) {
+    prior <- sheet[1,"tp"]/(sheet[1,"tp"]+sheet[1,"fp"])
+    ppv <- balance.prec(ppv,prior)
+  } 
+  if (monotonized) {
+    ppv <- monotonize(ppv)
+  }
+  return(ppv)
+}
+
 
 #' YogiRoc2 object constructor
 #'
@@ -107,20 +123,17 @@ yr2 <- function(truth, scores, names=colnames(scores), high=TRUE) {
       ppv.prec <- tp/(tp+fp)
       tpr.sens <- tp/(tp+fn)
       fpr.fall <- fp/(tn+fp)
-      ppv.prec.balanced <- ppv.prec*(1-prior)/(ppv.prec*(1-prior)+(1-ppv.prec)*prior)
-      #assess the confidence intervals
-      # precCI <- prcCI(tp,tp+fp)
+      # ppv.prec.balanced <- balance.prec(ppv.prec,prior)
       #return the results
-      c(thresh=t,tp=tp,tn=tn,fp=fp,fn=fn,ppv.prec=ppv.prec,tpr.sens=tpr.sens,fpr.fall=fpr.fall,
-            ppv.prec.balanced=ppv.prec.balanced#,precCI5=precCI[[1]],precCI95=precCI[[2]]
+      c(
+        thresh=t,tp=tp,tn=tn,fp=fp,fn=fn,
+        ppv.prec=ppv.prec,tpr.sens=tpr.sens,fpr.fall=fpr.fall
       )
     }))
     #set precision at infinite score threshold based on penultimate value
-    data[nrow(data),c("ppv.prec","ppv.prec.balanced")] <- data[nrow(data)-1,c("ppv.prec","ppv.prec.balanced")]
+    # data[nrow(data),c("ppv.prec","ppv.prec.balanced")] <- data[nrow(data)-1,c("ppv.prec","ppv.prec.balanced")]
+    data[nrow(data),"ppv.prec"] <- data[nrow(data)-1,"ppv.prec"]
     
-    #monotonize precision to correct for slumps in PRC curve
-    # data <- cbind(data,ppv.prec.mono=monotonize(data[,"ppv.prec"]))
-    # data <- cbind(data,ppv.prec.balanced.mono=monotonize(data[,"ppv.prec.balanced"]))
     return(data)
     
   }),names)
@@ -217,8 +230,9 @@ draw.roc <- function(yr2,col=seq_along(yr2),legend="bottomright",...) {
 draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,legend="bottomleft",...) {
   stopifnot(inherits(yr2,"yr2"))
   ppv <- function(i) {
-    raw <- if (balanced) yr2[[i]][,"ppv.prec.balanced"] else yr2[[i]][,"ppv.prec"]
-    if (monotonized) monotonize(raw) else raw
+    configure.prec(yr2[[i]],monotonized,balanced)
+    # raw <- if (balanced) yr2[[i]][,"ppv.prec.balanced"] else yr2[[i]][,"ppv.prec"]
+    # if (monotonized) monotonize(raw) else raw
   }
   plot(
     100*yr2[[1]][,"tpr.sens"],100*ppv(1),
@@ -247,6 +261,7 @@ draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,lege
 #' @param yr2 the yogiroc2 object
 #' @param col vector of colors to use for the predictors
 #' @param monotonized whether or not to monotonize the curve
+#' @param balanced whether or not to use prior-balancing
 #' @param legend the position of the legend, e.g. "bottomleft". NA disables legend
 #' @param ... additional graphical parameters (see \code{par})
 #'
@@ -268,11 +283,12 @@ draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,lege
 #' draw.prc.CI(yrobj)
 #' #draw non-monotonized PRC curve
 #' draw.prc.CI(yrobj,monotonized=FALSE)
-draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,legend="bottomleft",...) {
+draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,legend="bottomleft",...) {
   stopifnot(inherits(yr2,"yr2"))
-  mon <- function(xs) if (monotonized) monotonize(xs) else xs
+  # mon <- function(xs) if (monotonized) monotonize(xs) else xs
+  ppv <- function(i) configure.prec(yr2[[i]],monotonized,balanced)
   plot(
-    100*yr2[[1]][,"tpr.sens"],100*mon(yr2[[1]][,"ppv.prec"]),
+    100*yr2[[1]][,"tpr.sens"],100*ppv(1),
     type="l",
     xlab="Recall (%)", ylab="Precision (%)",
     xlim=c(0,100),ylim=c(0,100),col=col[[1]], ...
@@ -280,22 +296,32 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,legend="bottomle
   if(length(yr2) > 1) {
     for (i in 2:length(yr2)) {
       lines(
-        100*yr2[[i]][,"tpr.sens"],100*mon(yr2[[i]][,"ppv.prec"]),
+        100*yr2[[i]][,"tpr.sens"],100*ppv(i),
         col=col[[i]], ...
       )
     }
   } 
   for (i in 1:length(yr2)) {
     x <- 100*yr2[[i]][,"tpr.sens"]
+    prior <- yr2[[i]][1,"tp"]/(yr2[[i]][1,"tp"]+yr2[[i]][1,"fp"])
     precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"])
+    precCI <- apply(precCI,2,function(column) {
+      if (balanced) {
+        column <- balance.prec(column,prior)
+      } 
+      if (monotonized) {
+        column <- monotonize(column)
+      }
+      column
+    })
     polygon(c(x,rev(x)),
-            c(100*mon(precCI[,"0.025"]),rev(100*mon(precCI[,"0.975"]))),
+            c(100*precCI[,"0.025"],rev(100*precCI[,"0.975"])),
             col=yogitools::colAlpha(col[[i]],0.1),border=NA
     )
   }
   if (!is.na(legend)) {
     legend(legend,sprintf("%s (AUPRC=%.02f;R90P=%.02f)",
-        names(yr2),auprc(yr2,monotonized),recall.at.prec(yr2,0.9,monotonized)
+        names(yr2),auprc(yr2,monotonized,balanced),recall.at.prec(yr2,0.9,monotonized,balanced)
     ),col=col,lty=1)
   }
 }
@@ -511,12 +537,12 @@ calc.auc <- function(xs,ys) {
 #' auprc(yrobj,balanced=TRUE)
 auprc <- function(yr2, monotonized=TRUE, balanced=FALSE) {
   stopifnot(inherits(yr2,"yr2"))
-  ppv <- function(data) {
-    raw <- if (balanced) data[,"ppv.prec.balanced"] else data[,"ppv.prec"]
-    if (monotonized) monotonize(raw) else raw
-  }
+  # ppv <- function(data) {
+  #   raw <- if (balanced) data[,"ppv.prec.balanced"] else data[,"ppv.prec"]
+  #   if (monotonized) monotonize(raw) else raw
+  # }
   sapply(yr2,function(data) {
-    calc.auc(data[,"tpr.sens"],ppv(data))
+    calc.auc(data[,"tpr.sens"],configure.prec(data,monotonized,balanced))
   })
 }
   
@@ -573,13 +599,14 @@ auroc <- function(yr2) {
 #' recall.at.prec(yrobj,balanced=TRUE)
 recall.at.prec <- function(yr2,x=0.9,monotonized=TRUE,balanced=FALSE) {
   stopifnot(inherits(yr2,"yr2"))
-  ppv <- function(data) {
-    raw <- if (balanced) data[,"ppv.prec.balanced"] else data[,"ppv.prec"]
-    if (monotonized) monotonize(raw) else raw
-  }
+  # ppv <- function(data) {
+  #   raw <- if (balanced) data[,"ppv.prec.balanced"] else data[,"ppv.prec"]
+  #   if (monotonized) monotonize(raw) else raw
+  # }
   sapply(yr2,function(data) {
-    if (any(ppv(data) > x)) {
-      max(data[which(ppv(data) > x),"tpr.sens"])
+    ppv <- configure.prec(data,monotonized,balanced)
+    if (any(ppv > x)) {
+      max(data[which(ppv > x),"tpr.sens"])
     } else NA
   })
 }
