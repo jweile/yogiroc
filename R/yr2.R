@@ -178,24 +178,27 @@ print.yr2 <- function(yr2) {
 #' yrobj <- yr2(truth,scores)
 #' #draw PRC curve
 #' draw.roc(yrobj)
-draw.roc <- function(yr2,col=seq_along(yr2),legend="bottomright",...) {
+draw.roc <- function(yr2,col=seq_along(yr2),lty=1,legend="bottomright",...) {
   stopifnot(inherits(yr2,"yr2"))
+  if (length(lty) < length(yr2)) {
+    lty <- rep(lty,length(yr2))
+  }
   plot(
     100*yr2[[1]][,"fpr.fall"],100*yr2[[1]][,"tpr.sens"],
     type="l",
     xlab="False positive rate (%)\n(= 100%-specificity)", ylab="Sensitivity or True positive rate (%)",
-    xlim=c(0,100),ylim=c(0,100),col=col[[1]], ...
+    xlim=c(0,100),ylim=c(0,100),col=col[[1]], lty=lty[[1]], ...
   )
   if(length(yr2) > 1) {
     for (i in 2:length(yr2)) {
       lines(
         100*yr2[[i]][,"fpr.fall"],100*yr2[[i]][,"tpr.sens"],
-        col=col[[i]], ...
+        col=col[[i]], lty=lty[[i]], ...
       )
     }
   }
   if (!is.na(legend)) {
-    legend(legend,sprintf("%s (AUROC=%.02f)",names(yr2),auroc(yr2)),col=col,lty=1)
+    legend(legend,sprintf("%s (AUROC=%.02f)",names(yr2),auroc(yr2)),col=col,lty=lty)
   }
 }
 
@@ -227,8 +230,11 @@ draw.roc <- function(yr2,col=seq_along(yr2),legend="bottomright",...) {
 #' draw.prc(yrobj,monotonized=FALSE)
 #' #draw balanced PRC curve
 #' draw.prc(yrobj,balanced=TRUE)
-draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,legend="bottomleft",...) {
+draw.prc <- function(yr2,col=seq_along(yr2),lty=1,monotonized=TRUE,balanced=FALSE,legend="bottomleft",...) {
   stopifnot(inherits(yr2,"yr2"))
+  if (length(lty) < length(yr2)) {
+    lty <- rep(lty,length(yr2))
+  }
   ppv <- function(i) {
     configure.prec(yr2[[i]],monotonized,balanced)
     # raw <- if (balanced) yr2[[i]][,"ppv.prec.balanced"] else yr2[[i]][,"ppv.prec"]
@@ -238,20 +244,20 @@ draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,lege
     100*yr2[[1]][,"tpr.sens"],100*ppv(1),
     type="l",
     xlab="Recall (%)", ylab="Precision (%)",
-    xlim=c(0,100),ylim=c(0,100),col=col[[1]], ...
+    xlim=c(0,100),ylim=c(0,100),col=col[[1]], lty=lty[[1]], ...
   )
   if(length(yr2) > 1) {
     for (i in 2:length(yr2)) {
       lines(
         100*yr2[[i]][,"tpr.sens"],100*ppv(i),
-        col=col[[i]], ...
+        col=col[[i]], lty=lty[[i]], ...
       )
     }
   } 
   if (!is.na(legend)) {
     legend(legend,sprintf("%s (AUPRC=%.02f;R90P=%.02f)",
            names(yr2),auprc(yr2,monotonized,balanced),recall.at.prec(yr2,0.9,monotonized,balanced)
-    ),col=col,lty=1)
+    ),col=col,lty=lty)
   }
 }
 
@@ -283,21 +289,24 @@ draw.prc <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,lege
 #' draw.prc.CI(yrobj)
 #' #draw non-monotonized PRC curve
 #' draw.prc.CI(yrobj,monotonized=FALSE)
-draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,legend="bottomleft",...) {
+draw.prc.CI <- function(yr2,col=seq_along(yr2),lty=1,monotonized=TRUE,balanced=FALSE,legend="bottomleft",...) {
   stopifnot(inherits(yr2,"yr2"))
+  if (length(lty) < length(yr2)) {
+    lty <- rep(lty,length(yr2))
+  }
   # mon <- function(xs) if (monotonized) monotonize(xs) else xs
   ppv <- function(i) configure.prec(yr2[[i]],monotonized,balanced)
   plot(
     100*yr2[[1]][,"tpr.sens"],100*ppv(1),
     type="l",
     xlab="Recall (%)", ylab="Precision (%)",
-    xlim=c(0,100),ylim=c(0,100),col=col[[1]], ...
+    xlim=c(0,100),ylim=c(0,100),col=col[[1]], lty=lty[[1]], ...
   )
   if(length(yr2) > 1) {
     for (i in 2:length(yr2)) {
       lines(
         100*yr2[[i]][,"tpr.sens"],100*ppv(i),
-        col=col[[i]], ...
+        col=col[[i]], lty=lty[[i]], ...
       )
     }
   } 
@@ -322,7 +331,7 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),monotonized=TRUE,balanced=FALSE,l
   if (!is.na(legend)) {
     legend(legend,sprintf("%s (AUPRC=%.02f;R90P=%.02f)",
         names(yr2),auprc(yr2,monotonized,balanced),recall.at.prec(yr2,0.9,monotonized,balanced)
-    ),col=col,lty=1)
+    ),col=col,lty=lty)
   }
 }
 

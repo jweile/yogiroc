@@ -1,6 +1,6 @@
 Package: yogiroc
 Title: Draw ROC and PRC curves
-Version: 0.2.4.9000
+Version: 0.2.5.9000
 Authors@R: 'Jochen Weile <jochenweile@gmail.com> [aut,cre]'
 Description: Draw ROC and PRC curves, calculate AUC, confidence intervals and p-values.
 Depends: R (>= 3.4.4)
