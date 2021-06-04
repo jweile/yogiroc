@@ -42,6 +42,7 @@ monotonize <- function(xs) {
   xs
 }
 
+#Balancing concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished) 
 balance.prec <- function(ppv.prec,prior) {
   ppv.prec*(1-prior)/(ppv.prec*(1-prior)+(1-ppv.prec)*prior)
 }
@@ -204,6 +205,8 @@ draw.roc <- function(yr2,col=seq_along(yr2),lty=1,legend="bottomright",...) {
 
 
 #' Draw Precision-Recall Curve (PRC)
+#' 
+#' Balancing concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished) 
 #'
 #' @param yr2 the yogiroc2 object
 #' @param col vector of colors to use for the predictors
@@ -263,6 +266,9 @@ draw.prc <- function(yr2,col=seq_along(yr2),lty=1,monotonized=TRUE,balanced=FALS
 
 
 #' Draw Precision-Recall Curve (PRC) with confidence intervals
+#' 
+#' Balancing concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished) 
+#' Confidence interval concept by Jochen Weile
 #'
 #' @param yr2 the yogiroc2 object
 #' @param col vector of colors to use for the predictors
@@ -522,7 +528,7 @@ calc.auc <- function(xs,ys) {
 
 #' Calculate area under precision recall curve (AUPRC)
 #' 
-#' Concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished) 
+#' Balancing concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished) 
 #'
 #' @param yr2 the yogiroc2 object
 #' @param monotonized whether or not use a monotonized PRC curve

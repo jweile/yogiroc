@@ -31,7 +31,7 @@ draw.prc(
 nothing. draws a plot
 }
 \description{
-Draw Precision-Recall Curve (PRC)
+Balancing concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished)
 }
 \examples{
 #generate fake data

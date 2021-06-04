@@ -31,7 +31,8 @@ draw.prc.CI(
 nothing. draws a plot
 }
 \description{
-Draw Precision-Recall Curve (PRC) with confidence intervals
+Balancing concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished) 
+Confidence interval concept by Jochen Weile
 }
 \examples{
 #generate fake data

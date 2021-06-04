@@ -17,7 +17,7 @@ auprc(yr2, monotonized = TRUE, balanced = FALSE)
 a numerical vector with the AUPRC values for each predictor
 }
 \description{
-Concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished)
+Balancing concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished)
 }
 \examples{
 #generate fake data
