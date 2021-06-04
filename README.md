@@ -1,7 +1,18 @@
 # yogiroc
-Simple ROC and PRC curves
+YogiROC is an R package that allows for convenient plotting of Receiver-Operator Characteristics (ROC) and Precision-Recall Curves (PRC), including plotting of confidence intervals, significance testing between area under the PRC curve (AUPRC) and prior-balancing.
 
-Example:
+## Author contributions:
+ * Prior-balancing of PRC curves was conceptualized by Yingzhou Wu and Frederick P Roth
+ * Significance testing of AUPRC differences and confidence intervals were conceptualized by Jochen Weile
+ * R implementation by Jochen Weile
+
+## Installation
+Installation requires R version 3.6 or higher.
+```R
+remotes::install_github("jweile/yogiroc")
+```
+
+## Examples:
 ```R
 #install library
 devtools::install_github("jweile/yogiroc")
