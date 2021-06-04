@@ -7,6 +7,7 @@
 draw.prc(
   yr2,
   col = seq_along(yr2),
+  lty = 1,
   monotonized = TRUE,
   balanced = FALSE,
   legend = "bottomleft",

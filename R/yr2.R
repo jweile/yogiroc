@@ -521,6 +521,8 @@ calc.auc <- function(xs,ys) {
 }
 
 #' Calculate area under precision recall curve (AUPRC)
+#' 
+#' Concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished) 
 #'
 #' @param yr2 the yogiroc2 object
 #' @param monotonized whether or not use a monotonized PRC curve

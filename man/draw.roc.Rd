@@ -4,7 +4,7 @@
 \alias{draw.roc}
 \title{Draw a ROC curve}
 \usage{
-draw.roc(yr2, col = seq_along(yr2), legend = "bottomright", ...)
+draw.roc(yr2, col = seq_along(yr2), lty = 1, legend = "bottomright", ...)
 }
 \arguments{
 \item{yr2}{an underlying yogiroc2 object}

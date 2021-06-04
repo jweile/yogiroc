@@ -17,7 +17,7 @@ auprc(yr2, monotonized = TRUE, balanced = FALSE)
 a numerical vector with the AUPRC values for each predictor
 }
 \description{
-Calculate area under precision recall curve (AUPRC)
+Concept by Yingzhou Wu and Fritz Roth (Wu et al, unpublished)
 }
 \examples{
 #generate fake data
