@@ -1,6 +1,6 @@
 Package: yogiroc
 Title: Draw ROC and PRC curves
-Version: 0.2.5.9000
+Version: 0.3.0.9000
 Authors@R: c(
     person("Jochen", "Weile", email = "jochenweile@gmail.com", role = c("cre","aut")),
     person("Yingzhou", "Wu", email = "joe.wu.ca@gmail.com", role = "ctb"))

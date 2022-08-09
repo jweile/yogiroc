@@ -20,6 +20,132 @@ prcCI <- function(is, ns, p=c(0.025,0.975),res=0.001) {
   },is,ns,SIMPLIFY=FALSE))
 }
 
+#' Quick and dirty sampling of rate parameters of a binomial distribution
+#' 
+#' This function is used internally by samplePRCs() (below)
+#' 
+#' @param i numerator (number of successful events)
+#' @param n denominator (total number of events)
+#' @param N desired number of samples to generate
+#' @param minQ a minimum constraint for the samples 
+#'    Rates can't be smaller than this. This is useful to include prior information.
+#' @param maxQ a maximum constarint for the samples
+#' @return a vector of sampled rates
+sampleRatesQD <- function(i,n,N=1000,minQ=0,maxQ=1) {
+  #Simple rejection sampling
+  rateSamples <- runif(N,min=minQ,max=maxQ)
+  #rates are accepted if a uniform RV falls below their probability (dictated by binomial distribution)
+  accept <- runif(N,min=0,max=dbinom(i,n,i/n)) < dbinom(i,n,rateSamples)
+  #store accepted values
+  out <- rateSamples[accept]
+  #At this point we're likely short of the original N outputs we need.
+  #How much more do we need sample to make our quota (N)?
+  #Make 2x as many attempts as we expect to require
+  M <- 2*ceiling(N/(sum(accept)/N))
+  #generate the remaining samples as before
+  rateSamples <- runif(M,min=rep(minQ,length.out=M),max=rep(maxQ,length.out=M))
+  accept <- runif(M,min=0,max=dbinom(i,n,i/n)) < dbinom(i,n,rateSamples)
+  out <- c(out,rateSamples[accept])
+  return(head(out,N))
+}
+
+# rejection sampling method for single rates with constraints
+rejSam <- function(i,n,minQ=0,maxQ=1) {
+  x <- runif(1,min=minQ,max=maxQ)
+  #add some shortcuts for extreme constraints
+  if (minQ > i/n && dbinom(i,n,minQ) < 0.05) {
+    return(minQ)
+  }
+  if (maxQ < i/n && dbinom(i,n,maxQ) < 0.05) {
+    return(maxQ)
+  }
+  while (runif(1,0,dbinom(i,n,i/n)) > dbinom(i,n,x)) {
+    x <- runif(1,min=minQ,max=maxQ)
+  }
+  x
+}
+
+#' Slower, but order-preserving sampling of rate parameters of a binomial distribution
+#' 
+#' This function is used internally by samplePRCs() (below)
+#' 
+#' @param i numerator (number of successful events)
+#' @param n denominator (total number of events)
+#' @param N desired number of samples to generate
+#' @param minQ a minimum constraint for the samples 
+#'    Rates can't be smaller than this. This is useful to include prior information.
+#' @param maxQ a maximum constarint for the samples
+#' @return a vector of sampled rates
+sampleRates <- function(i,n,N=1000,minQ=NA, maxQ=NA) {
+  if (all(is.na(minQ)) && all(is.na(maxQ))) {
+    return(rbeta(N,i,n-i))
+  } else {
+    if (!all(is.na(minQ))) {
+      sapply(minQ, function(mq) {
+        rejSam(i,n,minQ=mq)
+      })
+    } else if (!all(is.na(maxQ))) {
+      sapply(maxQ, function(mq) {
+        rejSam(i,n,maxQ=mq)
+      })
+    }
+  }
+}
+
+#' Sample a distribution of PRC paths based, based on likelihood dictated by data
+#' 
+#' @param data a data table from a yr2 object
+#' @param N the number of samples 
+#' @param monotonized whether to use monotonization
+#' @return a list of tables containin N samples of precision and recall each. 
+#'    Each table corresponds to one row in the 'data' input
+samplePRCs <- function(data,N=1000,monotonized=TRUE,sr=sampleRates) {
+  pb <- txtProgressBar(max=nrow(data)-1,style=3)
+  randomPaths <- list(
+    cbind(
+      precision=sr(data[1,"tp"],data[1,"tp"]+data[1,"fp"]),
+      recall=sr(data[1,"tp"],data[1,"tp"]+data[1,"fn"])
+    )
+  )
+  setTxtProgressBar(pb,1)
+  for (k in 2:(nrow(data)-1)) {
+    if (monotonized) {
+      randomPaths[[k]] <- cbind(
+        precision=sr(data[k,"tp"],data[k,"tp"]+data[k,"fp"],minQ = randomPaths[[k-1]][,"precision"]),
+        recall=sr(data[k,"tp"],data[k,"tp"]+data[k,"fn"],maxQ = randomPaths[[k-1]][,"recall"])
+      )
+    } else {
+      randomPaths[[k]] <- cbind(
+        precision=sr(data[k,"tp"],data[k,"tp"]+data[k,"fp"]),
+        recall=sr(data[k,"tp"],data[k,"tp"]+data[k,"fn"])
+      )
+    }
+    setTxtProgressBar(pb,k)
+  }
+  return(randomPaths)
+}
+
+#' Use the output of samplePRCs to infer confidence intervals for a PRC curve
+#' 
+#' @param randomPaths the output of samplePRCs
+#' @param nbins the number of bins along the recall axis to use
+#' @return a table listing the confidence interval at each recall bin
+inferPRCCI <- function(randomPaths,nbins=50) {
+  randomSamples <- do.call(rbind,randomPaths)
+  q5 <- yogitools::runningFunction(
+    randomSamples[,"recall"],randomSamples[,"precision"],
+    nbins=nbins,fun=function(xs)quantile(xs,.025)
+  )
+  q95 <- yogitools::runningFunction(
+    randomSamples[,"recall"],randomSamples[,"precision"],
+    nbins=nbins,fun=function(xs)quantile(xs,.975)
+  )
+  out <- cbind(q5,q95[,2])
+  rownames(out) <- NULL
+  colnames(out) <- c("recall","0.025","0.975")
+  return(out)
+}
+
 # prcCI <- function(i,n,p=c(0.025,0.975),res=0.001) {
 #   rates <- seq(0,1,res)
 #   dens <- dbinom(i,n,rates)
@@ -295,8 +421,15 @@ draw.prc <- function(yr2,col=seq_along(yr2),lty=1,monotonized=TRUE,balanced=FALS
 #' draw.prc.CI(yrobj)
 #' #draw non-monotonized PRC curve
 #' draw.prc.CI(yrobj,monotonized=FALSE)
-draw.prc.CI <- function(yr2,col=seq_along(yr2),lty=1,monotonized=TRUE,balanced=FALSE,legend="bottomleft",...) {
+draw.prc.CI <- function(yr2,col=seq_along(yr2),lty=1,
+    monotonized=TRUE,balanced=FALSE,legend="bottomleft",
+    sampling=c("accurate","quickDirty"),nsamples=1000L,monotonizedSampling=FALSE,
+    ...) {
+
   stopifnot(inherits(yr2,"yr2"))
+  sr <- switch(match.arg(sampling,c("accurate","quickDirty")),
+    quickDirty=sampleRatesQD,accurate=sampleRates
+  )
   if (length(lty) < length(yr2)) {
     lty <- rep(lty,length(yr2))
   }
@@ -317,19 +450,20 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),lty=1,monotonized=TRUE,balanced=F
     }
   } 
   for (i in 1:length(yr2)) {
-    x <- 100*yr2[[i]][,"tpr.sens"]
+    # x <- 100*yr2[[i]][,"tpr.sens"]
     prior <- yr2[[i]][1,"tp"]/(yr2[[i]][1,"tp"]+yr2[[i]][1,"fp"])
-    precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"])
-    precCI <- apply(precCI,2,function(column) {
+    # precCI <- prcCI(yr2[[i]][,"tp"],yr2[[i]][,"tp"]+yr2[[i]][,"fp"])
+    precCI <- inferPRCCI(samplePRCs(yr2[[i]],N=nsamples,monotonized=monotonizedSampling,sr=sr))
+    precCI[,-1] <- apply(precCI[,-1],2,function(column) {
       if (balanced) {
         column <- balance.prec(column,prior)
       } 
-      if (monotonized) {
-        column <- monotonize(column)
-      }
+      # if (monotonized) {
+      #   column <- monotonize(column)
+      # }
       column
     })
-    polygon(c(x,rev(x)),
+    polygon(100*c(precCI[,1],rev(precCI[,1])),
             c(100*precCI[,"0.025"],rev(100*precCI[,"0.975"])),
             col=yogitools::colAlpha(col[[i]],0.1),border=NA
     )
@@ -339,6 +473,21 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),lty=1,monotonized=TRUE,balanced=F
         names(yr2),auprc(yr2,monotonized,balanced),recall.at.prec(yr2,0.9,monotonized,balanced)
     ),col=col,lty=lty)
   }
+}
+
+auprc.signif2 <- function(yr2,monotonized=TRUE) {
+  aucDistrs <- lapply(1:length(yr2),function(i) {
+    paths <- samplePRCs(yr2[[i]],monotonized=monotonized,sr=sampleRates)
+    paths <- lapply(1:nrow(paths[[1]]),function(j) {
+      do.call(rbind,lapply(1:length(paths), function(row) {
+        paths[[row]][j,]
+      }))
+    })
+    sapply(paths,function(path) {
+      path <- path[order(path[,2]),]
+      calc.auc(path[,2],path[,1])
+    })
+  })
 }
 
 #' Assess the significance of AUPRC differences
