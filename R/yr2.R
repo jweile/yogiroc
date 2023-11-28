@@ -369,10 +369,11 @@ draw.prc <- function(yr2,col=seq_along(yr2),lty=1,monotonized=TRUE,balanced=FALS
     # raw <- if (balanced) yr2[[i]][,"ppv.prec.balanced"] else yr2[[i]][,"ppv.prec"]
     # if (monotonized) monotonize(raw) else raw
   }
+  plabel <- ifelse(balanced,"Balanced precision (%)","Precision (%)")
   plot(
     100*yr2[[1]][,"tpr.sens"],100*ppv(1),
     type="l",
-    xlab="Recall (%)", ylab="Precision (%)",
+    xlab="Recall (%)", ylab=plabel,
     xlim=c(0,100),ylim=c(0,100),col=col[[1]], lty=lty[[1]], ...
   )
   if(length(yr2) > 1) {
@@ -435,10 +436,11 @@ draw.prc.CI <- function(yr2,col=seq_along(yr2),lty=1,
   }
   # mon <- function(xs) if (monotonized) monotonize(xs) else xs
   ppv <- function(i) configure.prec(yr2[[i]],monotonized,balanced)
+  plabel <- ifelse(balanced,"Balanced precision (%)","Precision (%)")
   plot(
     100*yr2[[1]][,"tpr.sens"],100*ppv(1),
     type="l",
-    xlab="Recall (%)", ylab="Precision (%)",
+    xlab="Recall (%)", ylab=plabel,
     xlim=c(0,100),ylim=c(0,100),col=col[[1]], lty=lty[[1]], ...
   )
   if(length(yr2) > 1) {
